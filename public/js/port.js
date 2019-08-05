@@ -1,5 +1,9 @@
 (global => {
   'use strict';
+
+  // TODO こうしないと参照できなかった。
+  const apiKey = SECRET.apiKey;
+
   app.ports.initGapi.subscribe(() => {
     initApi();
   });
@@ -39,13 +43,17 @@
       const profile = googleUser.getBasicProfile();
       app.ports.retInitGapi.send({
         name: profile.getName(),
-        email: profile.getEmail()
+        email: profile.getEmail(),
+        accessToken: googleUser.getAuthResponse().access_token,
+        apiKey: apiKey
       });
       return;
     }
     app.ports.retInitGapi.send({
       name: '',
-      email: ''
+      email: '',
+      accessToken: '',
+      apiKey: ''
     });
   }
 })(this);

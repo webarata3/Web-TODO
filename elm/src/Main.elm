@@ -2,11 +2,13 @@ port module Main exposing (Model, Msg(..), init, initGapi, main, retInitGapi, re
 
 import Browser
 import Browser.Navigation
+import Dict exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http exposing (..)
-import Json.Decode exposing (Decoder, decodeString, field, list, string)
+import Json.Decode exposing (Decoder, bool, decodeString, field, list, maybe, string)
+import Json.Encode
 
 
 port initGapi : () -> Cmd msg
@@ -19,6 +21,28 @@ port signOut : () -> Cmd msg
 
 
 port retSignOut : (Bool -> msg) -> Sub msg
+
+
+
+-- JSON
+
+
+decodeTaskList : Decoder TaskList
+decodeTaskList =
+    Json.Decode.map2 TaskList
+        (field "id" string)
+        (field "title" string)
+
+
+decodeTask : Decoder Task
+decodeTask =
+    Json.Decode.map6 Task
+        (field "id" string)
+        (field "title" string)
+        (field "position" string)
+        (field "status" string)
+        (maybe (field "parent" string))
+        (maybe (field "due" string))
 
 
 main : Program () Model Msg
@@ -38,11 +62,32 @@ main =
 type alias Profile =
     { name : String
     , email : String
+    , accessToken : String
+    , apiKey : String
+    }
+
+
+type alias TaskList =
+    { id : String
+    , title : String
+    }
+
+
+type alias Task =
+    { id : String
+    , title : String
+    , position : String
+    , status : String
+    , parent : Maybe String
+    , due : Maybe String
     }
 
 
 type alias Model =
     { profile : Profile
+    , taskLists : List TaskList
+    , parentTasks : List Task
+    , childTaskDict : Dict String (List Task)
     }
 
 
@@ -51,11 +96,23 @@ type Msg
     | FinishInitGapi Profile
     | SignOut
     | FinishSignOut Bool
+    | GetTaskList
+    | GotTaskList (Result Http.Error String)
+    | GetTask String
+    | GotTask (Result Http.Error String)
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { profile = { name = "", email = "" }
+    ( { profile =
+            { name = ""
+            , email = ""
+            , accessToken = ""
+            , apiKey = ""
+            }
+      , taskLists = []
+      , parentTasks = []
+      , childTaskDict = Dict.empty
       }
     , initGapi ()
     )
@@ -80,23 +137,139 @@ update msg model =
             ( model, initGapi () )
 
         FinishInitGapi profile ->
-            if profile.name == "" then
+            if profile.accessToken == "" then
                 ( model
                 , Browser.Navigation.load "/"
                 )
 
             else
-                ( { model
-                    | profile = profile
-                  }
-                , Cmd.none
-                )
+                update GetTaskList
+                    { model
+                        | profile = profile
+                    }
 
         SignOut ->
             ( model, signOut () )
 
         FinishSignOut _ ->
             ( model, Browser.Navigation.load "/" )
+
+        GetTaskList ->
+            ( model
+            , Http.request
+                { method = "GET"
+                , headers =
+                    [ Http.header "Authorization" <| "Bearer " ++ model.profile.accessToken
+                    ]
+                , url = "https://www.googleapis.com/tasks/v1/users/@me/lists?key=" ++ model.profile.apiKey
+                , body = Http.emptyBody
+                , expect = Http.expectString GotTaskList
+                , timeout = Nothing
+                , tracker = Nothing
+                }
+            )
+
+        GotTaskList (Ok resp) ->
+            let
+                decodeResult =
+                    decodeString (field "items" <| list decodeTaskList) resp
+            in
+            case decodeResult of
+                Ok taskLists ->
+                    ( { model
+                        | taskLists = taskLists
+                      }
+                    , Cmd.none
+                    )
+
+                Err error ->
+                    ( model, Cmd.none )
+
+        GotTaskList (Err error) ->
+            ( model, Cmd.none )
+
+        GetTask taskListId ->
+            ( model
+            , Http.request
+                { method = "GET"
+                , headers =
+                    [ Http.header "Authorization" <| "Bearer " ++ model.profile.accessToken
+                    ]
+                , url = "https://www.googleapis.com/tasks/v1/lists/" ++ taskListId ++ "/tasks?key=" ++ model.profile.apiKey
+                , body = Http.emptyBody
+                , expect = Http.expectString GotTask
+                , timeout = Nothing
+                , tracker = Nothing
+                }
+            )
+
+        GotTask (Ok resp) ->
+            let
+                decodeResult =
+                    decodeString (field "items" <| list decodeTask) resp
+            in
+            case decodeResult of
+                Ok tasks ->
+                    let
+                        ( parentTasks, childTaskDict ) =
+                            changeTasks tasks
+                    in
+                    ( { model
+                        | parentTasks = parentTasks
+                        , childTaskDict = childTaskDict
+                      }
+                    , Cmd.none
+                    )
+
+                Err error ->
+                    ( model, Cmd.none )
+
+        GotTask (Err error) ->
+            ( model, Cmd.none )
+
+
+changeTasks : List Task -> ( List Task, Dict String (List Task) )
+changeTasks respTasks =
+    let
+        children =
+            List.filter
+                (\t -> Maybe.withDefault "" t.parent /= "")
+                respTasks
+
+        resultParent =
+            List.sortBy .position <|
+                List.filter
+                    (\t -> Maybe.withDefault "" t.parent == "")
+                    respTasks
+
+        -- Dict 親ID 子Task
+        childrenList =
+            List.foldl
+                (\c d ->
+                    let
+                        key =
+                            Maybe.withDefault "" <| c.parent
+
+                        childList =
+                            Maybe.withDefault [] <| Dict.get key d
+
+                        newChildList =
+                            c :: childList
+                    in
+                    Dict.insert key newChildList d
+                )
+                Dict.empty
+                children
+
+        -- 小タスクの並べ替え
+        sortedChildrenList =
+            Dict.map
+                (\k v ->
+                    List.sortBy .position v
+                )
+                childrenList
+    in
+    Tuple.pair resultParent sortedChildrenList
 
 
 
@@ -109,4 +282,39 @@ view model =
         [ button [ onClick SignOut ] [ text "ログアウト" ]
         , div [] [ text model.profile.name ]
         , div [] [ text model.profile.email ]
+        , div [ class "task-main" ]
+            [ div [ class "task-lists" ] <| viewTaskLists model
+            , div [] <| viewTasks model
+            ]
         ]
+
+
+viewTaskLists : Model -> List (Html Msg)
+viewTaskLists model =
+    List.map viewTaskList model.taskLists
+
+
+viewTaskList : TaskList -> Html Msg
+viewTaskList taskList =
+    div [ onClick <| GetTask taskList.id ] [ text taskList.title ]
+
+
+viewTasks : Model -> List (Html Msg)
+viewTasks model =
+    List.map (viewTask model.childTaskDict) model.parentTasks
+
+
+viewTask : Dict String (List Task) -> Task -> Html Msg
+viewTask childTaskDict parentTask =
+    div [] <|
+        List.append
+            [ text <| parentTask.title ++ ":" ++ parentTask.position ]
+        <|
+            List.map viewChildTask <|
+                Maybe.withDefault [] <|
+                    Dict.get parentTask.id childTaskDict
+
+
+viewChildTask : Task -> Html Msg
+viewChildTask childTask =
+    div [] [ text <| ">>>>" ++ childTask.title ++ ":" ++ childTask.position ]
