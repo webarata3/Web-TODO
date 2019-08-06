@@ -6427,13 +6427,77 @@ var author$project$Main$viewTaskList = function (taskList) {
 var author$project$Main$viewTaskLists = function (model) {
 	return A2(elm$core$List$map, author$project$Main$viewTaskList, model.taskLists);
 };
-var author$project$Main$viewChildTask = function (childTask) {
+var elm$html$Html$input = _VirtualDom_node('input');
+var elm$virtual_dom$VirtualDom$node = function (tag) {
+	return _VirtualDom_node(
+		_VirtualDom_noScript(tag));
+};
+var elm$html$Html$node = elm$virtual_dom$VirtualDom$node;
+var elm$virtual_dom$VirtualDom$attribute = F2(
+	function (key, value) {
+		return A2(
+			_VirtualDom_attribute,
+			_VirtualDom_noOnOrFormAction(key),
+			_VirtualDom_noJavaScriptOrHtmlUri(value));
+	});
+var elm$html$Html$Attributes$attribute = elm$virtual_dom$VirtualDom$attribute;
+var elm$json$Json$Encode$string = _Json_wrap;
+var elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$string(string));
+	});
+var elm$html$Html$Attributes$type_ = elm$html$Html$Attributes$stringProperty('type');
+var author$project$Main$viewTask = function (task) {
 	return A2(
 		elm$html$Html$div,
 		_List_Nil,
 		_List_fromArray(
 			[
-				elm$html$Html$text('>>>>' + (childTask.title + (':' + childTask.position)))
+				A2(
+				elm$html$Html$div,
+				_List_Nil,
+				_List_fromArray(
+					[
+						A2(
+						elm$html$Html$input,
+						_List_fromArray(
+							[
+								elm$html$Html$Attributes$type_('checkbox')
+							]),
+						_List_Nil),
+						elm$html$Html$text(task.title)
+					])),
+				A3(
+				elm$html$Html$node,
+				'rfc3339-date',
+				_List_fromArray(
+					[
+						A2(
+						elm$html$Html$Attributes$attribute,
+						'rfc3339',
+						A2(elm$core$Maybe$withDefault, '', task.due))
+					]),
+				_List_Nil)
+			]));
+};
+var elm$html$Html$li = _VirtualDom_node('li');
+var elm$html$Html$ul = _VirtualDom_node('ul');
+var author$project$Main$viewChildTask = function (childTask) {
+	return A2(
+		elm$html$Html$ul,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A2(
+				elm$html$Html$li,
+				_List_Nil,
+				_List_fromArray(
+					[
+						author$project$Main$viewTask(childTask)
+					]))
 			]));
 };
 var elm$core$List$append = F2(
@@ -6444,16 +6508,22 @@ var elm$core$List$append = F2(
 			return A3(elm$core$List$foldr, elm$core$List$cons, ys, xs);
 		}
 	});
-var author$project$Main$viewTask = F2(
+var author$project$Main$viewParentTask = F2(
 	function (childTaskDict, parentTask) {
 		return A2(
-			elm$html$Html$div,
+			elm$html$Html$ul,
 			_List_Nil,
 			A2(
 				elm$core$List$append,
 				_List_fromArray(
 					[
-						elm$html$Html$text(parentTask.title + (':' + parentTask.position))
+						A2(
+						elm$html$Html$li,
+						_List_Nil,
+						_List_fromArray(
+							[
+								author$project$Main$viewTask(parentTask)
+							]))
 					]),
 				A2(
 					elm$core$List$map,
@@ -6466,19 +6536,11 @@ var author$project$Main$viewTask = F2(
 var author$project$Main$viewTasks = function (model) {
 	return A2(
 		elm$core$List$map,
-		author$project$Main$viewTask(model.childTaskDict),
+		author$project$Main$viewParentTask(model.childTaskDict),
 		model.parentTasks);
 };
 var elm$html$Html$article = _VirtualDom_node('article');
 var elm$html$Html$button = _VirtualDom_node('button');
-var elm$json$Json$Encode$string = _Json_wrap;
-var elm$html$Html$Attributes$stringProperty = F2(
-	function (key, string) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			elm$json$Json$Encode$string(string));
-	});
 var elm$html$Html$Attributes$class = elm$html$Html$Attributes$stringProperty('className');
 var elm$html$Html$Attributes$id = elm$html$Html$Attributes$stringProperty('id');
 var author$project$Main$view = function (model) {
@@ -6531,7 +6593,10 @@ var author$project$Main$view = function (model) {
 						author$project$Main$viewTaskLists(model)),
 						A2(
 						elm$html$Html$div,
-						_List_Nil,
+						_List_fromArray(
+							[
+								elm$html$Html$Attributes$class('tasks')
+							]),
 						author$project$Main$viewTasks(model))
 					]))
 			]));

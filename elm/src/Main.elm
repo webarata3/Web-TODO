@@ -284,7 +284,7 @@ view model =
         , div [] [ text model.profile.email ]
         , div [ class "task-main" ]
             [ div [ class "task-lists" ] <| viewTaskLists model
-            , div [] <| viewTasks model
+            , div [ class "tasks" ] <| viewTasks model
             ]
         ]
 
@@ -301,14 +301,14 @@ viewTaskList taskList =
 
 viewTasks : Model -> List (Html Msg)
 viewTasks model =
-    List.map (viewTask model.childTaskDict) model.parentTasks
+    List.map (viewParentTask model.childTaskDict) model.parentTasks
 
 
-viewTask : Dict String (List Task) -> Task -> Html Msg
-viewTask childTaskDict parentTask =
-    div [] <|
+viewParentTask : Dict String (List Task) -> Task -> Html Msg
+viewParentTask childTaskDict parentTask =
+    ul [] <|
         List.append
-            [ text <| parentTask.title ++ ":" ++ parentTask.position ]
+            [ li [] [ viewTask parentTask ] ]
         <|
             List.map viewChildTask <|
                 Maybe.withDefault [] <|
@@ -317,4 +317,20 @@ viewTask childTaskDict parentTask =
 
 viewChildTask : Task -> Html Msg
 viewChildTask childTask =
-    div [] [ text <| ">>>>" ++ childTask.title ++ ":" ++ childTask.position ]
+    ul []
+        [ li []
+            [ viewTask childTask ]
+        ]
+
+
+viewTask : Task -> Html Msg
+viewTask task =
+    div []
+        [ div []
+            [ input [ type_ "checkbox" ] []
+            , text <| task.title
+            ]
+        , node "rfc3339-date"
+            [ attribute "rfc3339" <| Maybe.withDefault "" task.due ]
+            []
+        ]
