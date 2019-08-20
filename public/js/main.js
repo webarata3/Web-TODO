@@ -5279,26 +5279,25 @@ var author$project$Main$changeTasks = function (respTasks) {
 		A2(
 			elm$core$List$filter,
 			function (t) {
-				return A2(elm$core$Maybe$withDefault, '', t.parent) === '';
+				return t.parent === '';
 			},
 			respTasks));
 	var children = A2(
 		elm$core$List$filter,
 		function (t) {
-			return A2(elm$core$Maybe$withDefault, '', t.parent) !== '';
+			return t.parent !== '';
 		},
 		respTasks);
 	var childrenList = A3(
 		elm$core$List$foldl,
 		F2(
 			function (c, d) {
-				var key = A2(elm$core$Maybe$withDefault, '', c.parent);
 				var childList = A2(
 					elm$core$Maybe$withDefault,
 					_List_Nil,
-					A2(elm$core$Dict$get, key, d));
+					A2(elm$core$Dict$get, c.parent, d));
 				var newChildList = A2(elm$core$List$cons, c, childList);
-				return A3(elm$core$Dict$insert, key, newChildList, d);
+				return A3(elm$core$Dict$insert, c.parent, newChildList, d);
 			}),
 		elm$core$Dict$empty,
 		children);
@@ -5316,37 +5315,172 @@ var author$project$Main$changeTasks = function (respTasks) {
 		childrenList);
 	return A2(elm$core$Tuple$pair, resultParent, sortedChildrenList);
 };
-var author$project$Main$Task = F6(
-	function (id, title, position, status, parent, due) {
-		return {due: due, id: id, parent: parent, position: position, status: status, title: title};
+var elm$json$Json$Decode$map2 = _Json_map2;
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom = elm$json$Json$Decode$map2(elm$core$Basics$apR);
+var elm$core$Basics$composeR = F3(
+	function (f, g, x) {
+		return g(
+			f(x));
 	});
-var elm$json$Json$Decode$map6 = _Json_map6;
-var elm$json$Json$Decode$map = _Json_map1;
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded = A2(elm$core$Basics$composeR, elm$json$Json$Decode$succeed, NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom);
+var elm$json$Json$Decode$decodeValue = _Json_run;
+var elm$json$Json$Decode$fail = _Json_fail;
+var elm$json$Json$Decode$null = _Json_decodeNull;
 var elm$json$Json$Decode$oneOf = _Json_oneOf;
-var elm$json$Json$Decode$maybe = function (decoder) {
+var elm$json$Json$Decode$value = _Json_decodeValue;
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optionalDecoder = F3(
+	function (pathDecoder, valDecoder, fallback) {
+		var nullOr = function (decoder) {
+			return elm$json$Json$Decode$oneOf(
+				_List_fromArray(
+					[
+						decoder,
+						elm$json$Json$Decode$null(fallback)
+					]));
+		};
+		var handleResult = function (input) {
+			var _n0 = A2(elm$json$Json$Decode$decodeValue, pathDecoder, input);
+			if (_n0.$ === 'Ok') {
+				var rawValue = _n0.a;
+				var _n1 = A2(
+					elm$json$Json$Decode$decodeValue,
+					nullOr(valDecoder),
+					rawValue);
+				if (_n1.$ === 'Ok') {
+					var finalResult = _n1.a;
+					return elm$json$Json$Decode$succeed(finalResult);
+				} else {
+					var finalErr = _n1.a;
+					return elm$json$Json$Decode$fail(
+						elm$json$Json$Decode$errorToString(finalErr));
+				}
+			} else {
+				return elm$json$Json$Decode$succeed(fallback);
+			}
+		};
+		return A2(elm$json$Json$Decode$andThen, handleResult, elm$json$Json$Decode$value);
+	});
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional = F4(
+	function (key, valDecoder, fallback, decoder) {
+		return A2(
+			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom,
+			A3(
+				NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optionalDecoder,
+				A2(elm$json$Json$Decode$field, key, elm$json$Json$Decode$value),
+				valDecoder,
+				fallback),
+			decoder);
+	});
+var NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required = F3(
+	function (key, valDecoder, decoder) {
+		return A2(
+			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$custom,
+			A2(elm$json$Json$Decode$field, key, valDecoder),
+			decoder);
+	});
+var author$project$Main$Task = function (kind) {
+	return function (id) {
+		return function (etag) {
+			return function (title) {
+				return function (updated) {
+					return function (selfLink) {
+						return function (parent) {
+							return function (position) {
+								return function (notes) {
+									return function (status) {
+										return function (due) {
+											return function (completed) {
+												return function (deleted) {
+													return function (hidden) {
+														return {completed: completed, deleted: deleted, due: due, etag: etag, hidden: hidden, id: id, kind: kind, notes: notes, parent: parent, position: position, selfLink: selfLink, status: status, title: title, updated: updated};
+													};
+												};
+											};
+										};
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+var elm$json$Json$Decode$map = _Json_map1;
+var elm$json$Json$Decode$nullable = function (decoder) {
 	return elm$json$Json$Decode$oneOf(
 		_List_fromArray(
 			[
-				A2(elm$json$Json$Decode$map, elm$core$Maybe$Just, decoder),
-				elm$json$Json$Decode$succeed(elm$core$Maybe$Nothing)
+				elm$json$Json$Decode$null(elm$core$Maybe$Nothing),
+				A2(elm$json$Json$Decode$map, elm$core$Maybe$Just, decoder)
 			]));
 };
-var author$project$Main$decodeTask = A7(
-	elm$json$Json$Decode$map6,
-	author$project$Main$Task,
-	A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$string),
-	A2(elm$json$Json$Decode$field, 'title', elm$json$Json$Decode$string),
-	A2(elm$json$Json$Decode$field, 'position', elm$json$Json$Decode$string),
-	A2(elm$json$Json$Decode$field, 'status', elm$json$Json$Decode$string),
-	elm$json$Json$Decode$maybe(
-		A2(elm$json$Json$Decode$field, 'parent', elm$json$Json$Decode$string)),
-	elm$json$Json$Decode$maybe(
-		A2(elm$json$Json$Decode$field, 'due', elm$json$Json$Decode$string)));
+var author$project$Main$decodeTask = A4(
+	NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+	'hidden',
+	elm$json$Json$Decode$bool,
+	false,
+	A4(
+		NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+		'deleted',
+		elm$json$Json$Decode$bool,
+		false,
+		A2(
+			NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$hardcoded,
+			'',
+			A4(
+				NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+				'due',
+				elm$json$Json$Decode$string,
+				'',
+				A3(
+					NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+					'status',
+					elm$json$Json$Decode$string,
+					A4(
+						NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+						'notes',
+						elm$json$Json$Decode$string,
+						'',
+						A3(
+							NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+							'position',
+							elm$json$Json$Decode$string,
+							A4(
+								NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+								'parent',
+								elm$json$Json$Decode$string,
+								'',
+								A3(
+									NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+									'selfLink',
+									elm$json$Json$Decode$string,
+									A3(
+										NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+										'updated',
+										elm$json$Json$Decode$nullable(elm$json$Json$Decode$string),
+										A3(
+											NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+											'title',
+											elm$json$Json$Decode$string,
+											A3(
+												NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+												'etag',
+												elm$json$Json$Decode$string,
+												A3(
+													NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+													'id',
+													elm$json$Json$Decode$string,
+													A3(
+														NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+														'kind',
+														elm$json$Json$Decode$string,
+														elm$json$Json$Decode$succeed(author$project$Main$Task)))))))))))))));
 var author$project$Main$TaskList = F2(
 	function (id, title) {
 		return {id: id, title: title};
 	});
-var elm$json$Json$Decode$map2 = _Json_map2;
 var author$project$Main$decodeTaskList = A3(
 	elm$json$Json$Decode$map2,
 	author$project$Main$TaskList,
@@ -6027,11 +6161,6 @@ var elm$http$Http$Sending = function (a) {
 };
 var elm$http$Http$Timeout_ = {$: 'Timeout_'};
 var elm$http$Http$emptyBody = _Http_emptyBody;
-var elm$core$Basics$composeR = F3(
-	function (f, g, x) {
-		return g(
-			f(x));
-	});
 var elm$http$Http$expectStringResponse = F2(
 	function (toMsg, toResult) {
 		return A3(
@@ -6470,17 +6599,20 @@ var author$project$Main$viewTask = function (task) {
 						_List_Nil),
 						elm$html$Html$text(task.title)
 					])),
-				A3(
-				elm$html$Html$node,
-				'rfc3339-date',
+				A2(
+				elm$html$Html$div,
+				_List_Nil,
 				_List_fromArray(
 					[
-						A2(
-						elm$html$Html$Attributes$attribute,
-						'rfc3339',
-						A2(elm$core$Maybe$withDefault, '', task.due))
-					]),
-				_List_Nil)
+						A3(
+						elm$html$Html$node,
+						'rfc3339-date',
+						_List_fromArray(
+							[
+								A2(elm$html$Html$Attributes$attribute, 'rfc3339', task.due)
+							]),
+						_List_Nil)
+					]))
 			]));
 };
 var elm$html$Html$li = _VirtualDom_node('li');

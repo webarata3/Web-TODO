@@ -1,4 +1,4 @@
-port module Main exposing (Model, Msg(..), init, initGapi, main, retInitGapi, retSignOut, signOut, subscriptions, update, view)
+port module Main exposing (Link, Model, Msg(..), Profile, Task, TaskList, changeTasks, decodeTask, decodeTaskList, init, initGapi, main, retInitGapi, retSignOut, signOut, subscriptions, update, view, viewChildTask, viewParentTask, viewTask, viewTaskList, viewTaskLists, viewTasks)
 
 import Browser
 import Browser.Navigation
@@ -7,7 +7,8 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http exposing (..)
-import Json.Decode exposing (Decoder, bool, decodeString, field, list, maybe, string)
+import Json.Decode exposing (Decoder, bool, decodeString, field, list, maybe, nullable, string, succeed)
+import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode
 
 
@@ -36,13 +37,33 @@ decodeTaskList =
 
 decodeTask : Decoder Task
 decodeTask =
-    Json.Decode.map6 Task
-        (field "id" string)
-        (field "title" string)
-        (field "position" string)
-        (field "status" string)
-        (maybe (field "parent" string))
-        (maybe (field "due" string))
+    succeed Task
+        |> required "kind" string
+        |> required "id" string
+        |> required "etag" string
+        |> required "title" string
+        |> required "updated" (nullable string)
+        |> required "selfLink" string
+        |> optional "parent" string ""
+        |> required "position" string
+        |> optional "notes" string ""
+        |> required "status" string
+        |> optional "due" string ""
+        |> hardcoded ""
+        |> optional "deleted" bool False
+        |> optional "hidden" bool False
+
+
+
+-- |> required "links" (list decodeLink)
+
+
+decodeLink : Decoder Link
+decodeLink =
+    Json.Decode.map3 Link
+        (field "typeName" string)
+        (field "description" string)
+        (field "link" string)
 
 
 main : Program () Model Msg
@@ -73,13 +94,30 @@ type alias TaskList =
     }
 
 
+type alias Link =
+    { typeName : String
+    , description : String
+    , link : String
+    }
+
+
 type alias Task =
-    { id : String
+    { kind : String
+    , id : String
+    , etag : String
     , title : String
+    , updated : Maybe String
+    , selfLink : String
+    , parent : String
     , position : String
+    , notes : String
     , status : String
-    , parent : Maybe String
-    , due : Maybe String
+    , due : String
+    , completed : String
+    , deleted : Bool
+    , hidden : Bool
+
+    -- , links : List Link
     }
 
 
@@ -233,13 +271,13 @@ changeTasks respTasks =
     let
         children =
             List.filter
-                (\t -> Maybe.withDefault "" t.parent /= "")
+                (\t -> t.parent /= "")
                 respTasks
 
         resultParent =
             List.sortBy .position <|
                 List.filter
-                    (\t -> Maybe.withDefault "" t.parent == "")
+                    (\t -> t.parent == "")
                     respTasks
 
         -- Dict 親ID 子Task
@@ -247,16 +285,13 @@ changeTasks respTasks =
             List.foldl
                 (\c d ->
                     let
-                        key =
-                            Maybe.withDefault "" <| c.parent
-
                         childList =
-                            Maybe.withDefault [] <| Dict.get key d
+                            Maybe.withDefault [] <| Dict.get c.parent d
 
                         newChildList =
                             c :: childList
                     in
-                    Dict.insert key newChildList d
+                    Dict.insert c.parent newChildList d
                 )
                 Dict.empty
                 children
@@ -330,7 +365,9 @@ viewTask task =
             [ input [ type_ "checkbox" ] []
             , text <| task.title
             ]
-        , node "rfc3339-date"
-            [ attribute "rfc3339" <| Maybe.withDefault "" task.due ]
-            []
+        , div []
+            [ node "rfc3339-date"
+                [ attribute "rfc3339" task.due ]
+                []
+            ]
         ]

@@ -4,16 +4,22 @@ class Rfc3339Date extends HTMLElement {
     const shadowRoot = this.attachShadow({ mode: 'open' });
     shadowRoot.innerHTML = `
 <style>
-div {
+:host {
+  --component-size: 1rem;
+}
+
+span {
   position: relative;
-  width: 20px;
-  height: 20px;
+  height: var(--component-size);
+  display: inline-flex;
+  align-items: center;
 }
 
 input[type="date"] {
   color: transparent;
   background-color: transparent;
   position: absolute;
+  right: 0;
   padding: 0;
   outline: none;
   border: none;
@@ -35,27 +41,39 @@ input[type="date"]::-webkit-datetime-edit {
 
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  cursor: pointer;
   color: transparent;
   background-color: transparent;
-  width: 20px;
-  height: 20px;
+  width: var(--component-size);
+  height: var(--component-size);
   padding: 0;
+}
+
+label {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--component-size);
+  height: var(--component-size);
 }
 
 label::after {
   display: inline-block;
   content: '';
-  position: absolute;
-  width: 20px;
-  height: 20px;
+  width: var(--component-size);
+  height: var(--component-size);
   background: url(image/calendar.png);
-  background-size: 20px 20px;
+  background-size: var(--component-size) var(--component-size);
   background-repeat: no-repeat;
+  background-position: right;
+}
+
+label.selected::after {
+  width: calc(var(--component-size) + 0.3rem);
 }
 </style>
-<div>
+<span>
  <label></label><input type="date">
-</div>
+</span>
 `;
     const $input = shadowRoot.querySelector('input');
     $input.addEventListener('change', event => {
@@ -82,12 +100,24 @@ label::after {
   attributeChangedCallback(attrName, oldVal, newVal) {
     switch (attrName) {
       case 'rfc3339':
-        const parseDate = new Date(Date.parse(newVal));
-        const date = `${parseDate.getFullYear()}-${zeroPadding(
-          parseDate.getMonth() + 1,
-          2
-        )}-${zeroPadding(parseDate.getDate(), 2)}`;
-        this.shadowRoot.querySelector('input[type=date]').value = date;
+        const checkDate = Date.parse(newVal);
+        const $label = this.shadowRoot.querySelector('label');
+        if (isNaN(checkDate)) {
+          $label.textContent = '';
+          $label.classList.remove('selected');
+        } else {
+          const parseDate = new Date(checkDate);
+          const date = `${parseDate.getFullYear()}-${zeroPadding(
+            parseDate.getMonth() + 1,
+            2
+          )}-${zeroPadding(parseDate.getDate(), 2)}`;
+          this.shadowRoot.querySelector('input[type=date]').value = date;
+          $label.classList.add('selected');
+          $label.textContent = `${parseDate.getFullYear()}-${zeroPadding(
+            parseDate.getMonth() + 1,
+            2
+          )}-${zeroPadding(parseDate.getDate(), 2)}`;
+        }
         break;
     }
   }
