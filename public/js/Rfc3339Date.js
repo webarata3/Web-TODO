@@ -79,6 +79,7 @@ label.selected::after {
     $input.addEventListener('change', event => {
       const $elm = event.currentTarget;
       const rfc3339String = $elm.value ? `${$elm.value}T00:00:00.000Z` : '';
+      this.setNewDate($elm.value);
       this.dispatchEvent(
         new CustomEvent('dateChange', {
           detail: {
@@ -100,25 +101,29 @@ label.selected::after {
   attributeChangedCallback(attrName, oldVal, newVal) {
     switch (attrName) {
       case 'rfc3339':
-        const checkDate = Date.parse(newVal);
-        const $label = this.shadowRoot.querySelector('label');
-        if (isNaN(checkDate)) {
-          $label.textContent = '';
-          $label.classList.remove('selected');
-        } else {
-          const parseDate = new Date(checkDate);
-          const date = `${parseDate.getFullYear()}-${zeroPadding(
-            parseDate.getMonth() + 1,
-            2
-          )}-${zeroPadding(parseDate.getDate(), 2)}`;
-          this.shadowRoot.querySelector('input[type=date]').value = date;
-          $label.classList.add('selected');
-          $label.textContent = `${parseDate.getFullYear()}-${zeroPadding(
-            parseDate.getMonth() + 1,
-            2
-          )}-${zeroPadding(parseDate.getDate(), 2)}`;
-        }
+        this.setNewDate(newVal);
         break;
+    }
+  }
+
+  setNewDate(newVal) {
+    const checkDate = Date.parse(newVal);
+    const $label = this.shadowRoot.querySelector('label');
+    if (isNaN(checkDate)) {
+      $label.textContent = '';
+      $label.classList.remove('selected');
+    } else {
+      const parseDate = new Date(checkDate);
+      const date = `${parseDate.getFullYear()}-${zeroPadding(
+        parseDate.getMonth() + 1,
+        2
+      )}-${zeroPadding(parseDate.getDate(), 2)}`;
+      this.shadowRoot.querySelector('input[type=date]').value = date;
+      $label.classList.add('selected');
+      $label.textContent = `${parseDate.getFullYear()}-${zeroPadding(
+        parseDate.getMonth() + 1,
+        2
+      )}-${zeroPadding(parseDate.getDate(), 2)}`;
     }
   }
 }
