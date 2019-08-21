@@ -1,4 +1,4 @@
-port module Main exposing (Link, Model, Msg(..), Profile, Task, TaskList, changeTasks, decodeTask, decodeTaskList, init, initGapi, main, retInitGapi, retSignOut, signOut, subscriptions, update, view, viewChildTask, viewParentTask, viewTask, viewTaskList, viewTaskLists, viewTasks)
+port module Main exposing (Link, Model, Msg(..), Profile, Task, TaskList, changeTasks, decodeLink, decodeTask, decodeTaskList, init, initGapi, main, retInitGapi, retSignOut, signOut, subscriptions, update, view, viewChildTask, viewParentTask, viewTask, viewTaskList, viewTaskLists, viewTasks)
 
 import Browser
 import Browser.Navigation
@@ -10,6 +10,7 @@ import Http exposing (..)
 import Json.Decode exposing (Decoder, bool, decodeString, field, list, maybe, nullable, string, succeed)
 import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode
+import Url.Builder
 
 
 port initGapi : () -> Cmd msg
@@ -125,6 +126,7 @@ type alias Model =
     { profile : Profile
     , taskLists : List TaskList
     , parentTasks : List Task
+    , selectedTaskListId : String
     , childTaskDict : Dict String (List Task)
     }
 
@@ -138,6 +140,7 @@ type Msg
     | GotTaskList (Result Http.Error String)
     | GetTask String
     | GotTask (Result Http.Error String)
+    | ChangeDate Task String
 
 
 init : () -> ( Model, Cmd Msg )
@@ -151,6 +154,7 @@ init _ =
       , taskLists = []
       , parentTasks = []
       , childTaskDict = Dict.empty
+      , selectedTaskListId = ""
       }
     , initGapi ()
     )
@@ -199,7 +203,11 @@ update msg model =
                 , headers =
                     [ Http.header "Authorization" <| "Bearer " ++ model.profile.accessToken
                     ]
-                , url = "https://www.googleapis.com/tasks/v1/users/@me/lists?key=" ++ model.profile.apiKey
+                , url =
+                    Url.Builder.crossOrigin
+                        "https://www.googleapis.com"
+                        [ "tasks/v1/users/@me/lists?key=" ++ model.profile.apiKey ]
+                        []
                 , body = Http.emptyBody
                 , expect = Http.expectString GotTaskList
                 , timeout = Nothing
@@ -227,13 +235,22 @@ update msg model =
             ( model, Cmd.none )
 
         GetTask taskListId ->
-            ( model
+            ( { model
+                | selectedTaskListId = taskListId
+              }
             , Http.request
                 { method = "GET"
                 , headers =
                     [ Http.header "Authorization" <| "Bearer " ++ model.profile.accessToken
                     ]
-                , url = "https://www.googleapis.com/tasks/v1/lists/" ++ taskListId ++ "/tasks?key=" ++ model.profile.apiKey
+                , url =
+                    Url.Builder.crossOrigin
+                        "https://www.googleapis.com"
+                        [ "tasks/v1/lists"
+                        , taskListId
+                        , "tasks?key=" ++ model.profile.apiKey
+                        ]
+                        []
                 , body = Http.emptyBody
                 , expect = Http.expectString GotTask
                 , timeout = Nothing
@@ -264,6 +281,35 @@ update msg model =
 
         GotTask (Err error) ->
             ( model, Cmd.none )
+
+        ChangeDate task rfc3339 ->
+            let
+                newTask =
+                    { task
+                        | due = rfc3339
+                    }
+            in
+            ( model
+            , Http.request
+                { method = "PUT"
+                , headers =
+                    [ Http.header "Authorization" <| "Bearer " ++ model.profile.accessToken
+                    ]
+                , url =
+                    Url.Builder.crossOrigin
+                        "https://www.googleapis.com"
+                        [ "tasks/v1/lists"
+                        , model.selectedTaskListId
+                        , "tasks"
+                        , task.id ++ "?key=" ++ model.profile.apiKey
+                        ]
+                        []
+                , body = encodeTask newTask
+                , expect = Http.expectString GotTask
+                , timeout = Nothing
+                , tracker = Nothing
+                }
+            )
 
 
 changeTasks : List Task -> ( List Task, Dict String (List Task) )
@@ -305,6 +351,21 @@ changeTasks respTasks =
                 childrenList
     in
     Tuple.pair resultParent sortedChildrenList
+
+
+encodeTask : Task -> Body
+encodeTask task =
+    Http.jsonBody <|
+        Json.Encode.object
+            [ ( "kind", Json.Encode.string "tasks#task" )
+            , ( "id", Json.Encode.string task.id )
+            , ( "title", Json.Encode.string <| task.title )
+            , ( "selfLink", Json.Encode.string task.selfLink )
+            , ( "position", Json.Encode.string task.position )
+            , ( "notes", Json.Encode.string task.notes )
+            , ( "status", Json.Encode.string task.status )
+            , ( "due", Json.Encode.string task.due )
+            ]
 
 
 
@@ -367,7 +428,11 @@ viewTask task =
             ]
         , div []
             [ node "rfc3339-date"
-                [ attribute "rfc3339" task.due ]
+                [ attribute "rfc3339" task.due
+                , on "dateChange" <|
+                    Json.Decode.map (ChangeDate task) <|
+                        field "detail" string
+                ]
                 []
             ]
         ]

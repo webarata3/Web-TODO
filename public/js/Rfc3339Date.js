@@ -82,10 +82,7 @@ label.selected::after {
       this.setNewDate($elm.value);
       this.dispatchEvent(
         new CustomEvent('dateChange', {
-          detail: {
-            rfc3339: rfc3339String,
-            key: 1
-          }
+          detail: rfc3339String
         })
       );
     });
