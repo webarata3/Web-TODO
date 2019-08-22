@@ -5932,7 +5932,7 @@ var author$project$Main$encodeTask = function (task) {
 					elm$json$Json$Encode$string(task.id)),
 					_Utils_Tuple2(
 					'title',
-					elm$json$Json$Encode$string(task.title + 'hoge')),
+					elm$json$Json$Encode$string(task.title)),
 					_Utils_Tuple2(
 					'selfLink',
 					elm$json$Json$Encode$string(task.selfLink)),
